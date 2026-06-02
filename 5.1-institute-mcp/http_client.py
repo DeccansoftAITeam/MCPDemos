@@ -1,18 +1,32 @@
 """
-Deccansoft Institute — MCP Console Client
-Connects to the institute MCP server (main.py) via stdio transport.
-Demonstrates Tools, Resources, Resource Templates, and Prompts.
+Deccansoft Institute — MCP HTTP Client
+Connects to the institute MCP server over Streamable HTTP transport.
+
+Requires the server to be running first:
+    python main.py http
 """
 
 import asyncio
 import json
-from mcp import ClientSession, StdioServerParameters
-from mcp.client.stdio import stdio_client
+from mcp import ClientSession
+from mcp.client.streamable_http import streamable_http_client
+
+SERVER_URL = "http://127.0.0.1:8000/mcp"
+SEP        = "─" * 60
+DSEP       = "═" * 60
+
+
+def header(title: str):
+    print(f"\n{DSEP}")
+    print(f"  {title}")
+    print(DSEP)
+
 
 def section(title: str):
-    print(f"\n{'─' * 60}")
+    print(f"\n{SEP}")
     print(f"  {title}")
-    print("─" * 60)
+    print(SEP)
+
 
 # ─────────────────────────────────────────────────────────────
 # TOOLS
@@ -38,11 +52,10 @@ async def handle_tools(session: ClientSession):
     print(f"\n  Tool  : {tool.name}")
     print(f"  Desc  : {tool.description}")
 
-    # Collect arguments dynamically from JSON schema
-    args = {}
-    schema = tool.inputSchema or {}
+    args       = {}
+    schema     = tool.inputSchema or {}
     properties = schema.get("properties", {})
-    required    = schema.get("required", [])
+    required   = schema.get("required", [])
 
     if properties:
         print("\n  Enter arguments:")
@@ -60,31 +73,30 @@ async def handle_tools(session: ClientSession):
         except Exception:
             print(c.text)
 
+
 # ─────────────────────────────────────────────────────────────
 # RESOURCES & RESOURCE TEMPLATES
 # ─────────────────────────────────────────────────────────────
 
 async def handle_resources(session: ClientSession):
-    resources  = await session.list_resources()
-    templates  = await session.list_resource_templates()
+    resources = await session.list_resources()
+    templates = await session.list_resource_templates()
 
-    items = []   # list of (label, uri_or_template, is_template)
+    items = []  # list of (uri_or_template, is_template)
 
     if resources.resources:
         section("Static Resources")
         for i, r in enumerate(resources.resources, 1):
-            label = r.description or str(r.uri)
             print(f"  {i}. {r.uri}")
-            print(f"     {label}")
+            print(f"     {r.description or r.name}")
             items.append((str(r.uri), False))
 
     if templates.resourceTemplates:
         offset = len(items)
         section("Resource Templates  (parameterised)")
         for i, t in enumerate(templates.resourceTemplates, offset + 1):
-            label = t.description or t.name
             print(f"  {i}. {t.uriTemplate}")
-            print(f"     {label}")
+            print(f"     {t.description or t.name}")
             items.append((t.uriTemplate, True))
 
     if not items:
@@ -160,14 +172,9 @@ async def handle_prompts(session: ClientSession):
 # ─────────────────────────────────────────────────────────────
 
 async def run():
-    server_params = StdioServerParameters(
-        command="python",
-        args=["main.py"],
-    )
+    print(f"  Connecting to MCP server at {SERVER_URL} ...")
 
-    print("  Connecting to MCP server (main.py) via stdio...")
-
-    async with stdio_client(server_params) as (read, write):
+    async with streamable_http_client(SERVER_URL) as (read, write):
         async with ClientSession(read, write) as session:
             await session.initialize()
             print("  Connected successfully!\n")
@@ -175,7 +182,7 @@ async def run():
             while True:
                 print(f"\n{SEP}")
                 print("  MAIN MENU")
-                print(f"{SEP}")
+                print(SEP)
                 print("  1. Tools          — call add_student, enroll, search, etc.")
                 print("  2. Resources      — browse courses, faculty, students, batches")
                 print("  3. Prompts        — render progress report, announcement, etc.")
