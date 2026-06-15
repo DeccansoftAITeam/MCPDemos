@@ -420,9 +420,17 @@ Tone: Friendly, honest, and advisory.
 
 if __name__ == "__main__":
     import sys
+<<<<<<< HEAD:MCPClientWithLLM/main.py
     mcp.run(transport="stdio")
 
     # if len(sys.argv) > 1 and sys.argv[1] == "http":
     #     print("Starting MCP server on http://127.0.0.1:8000/mcp ...")
     # else:
     #     mcp.run(transport="stdio")
+=======
+    if len(sys.argv) > 1 and sys.argv[1] == "http":
+        print("Starting MCP server on http://127.0.0.1:8000/mcp ...")
+        mcp.run(transport="streamable-http", host="127.0.0.1", port=8000)
+    else:
+        mcp.run(transport="stdio")
+>>>>>>> a9b508fc8c9b6829a46cddcc8fc5e8a64eabe965:5.1-institute-mcp/main.py
