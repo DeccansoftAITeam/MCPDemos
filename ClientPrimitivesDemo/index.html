@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MCP Client Primitives</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --panel2: #1d212b; --border: #2a2f3a;
+    --text: #e7e9ee; --muted: #9aa3b2;
+    --client: #1d9e75; --server: #7f77dd; --llm: #ef9f27; --err: #e24b4a; --accent: #378add;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.5;
+  }
+  header {
+    padding: 20px 24px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
+  }
+  header h1 { font-size: 18px; font-weight: 600; margin: 0; }
+  header .sub { color: var(--muted); font-size: 13px; }
+  .badge {
+    margin-left: auto; font-size: 12px; padding: 4px 10px; border-radius: 999px;
+    border: 1px solid var(--border); color: var(--muted);
+  }
+  .badge.real { color: var(--client); border-color: var(--client); }
+  main { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; padding: 18px 24px; }
+  @media (max-width: 880px) { main { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px; margin-bottom: 16px;
+  }
+  .card h2 { font-size: 14px; margin: 0 0 4px; font-weight: 600; }
+  .card .tag { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+  .tag.sampling { color: var(--llm); }
+  .tag.elicit { color: var(--client); }
+  .tag.both { color: var(--accent); }
+  .card p.desc { color: var(--muted); font-size: 12px; margin: 6px 0 12px; }
+  label { display: block; font-size: 12px; color: var(--muted); margin: 8px 0 4px; }
+  input[type=text], textarea, select {
+    width: 100%; background: var(--panel2); border: 1px solid var(--border);
+    color: var(--text); border-radius: 8px; padding: 8px 10px; font-size: 13px;
+    font-family: inherit;
+  }
+  textarea { resize: vertical; min-height: 84px; font-family: ui-monospace, Menlo, monospace; }
+  button {
+    margin-top: 12px; background: var(--accent); color: #fff; border: 0;
+    border-radius: 8px; padding: 9px 14px; font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  button.secondary { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+
+  .panel-title { font-size: 12px; color: var(--muted); text-transform: uppercase;
+    letter-spacing: .06em; margin: 0 0 8px; }
+  #log {
+    background: #0b0d11; border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 12px; height: 340px; overflow-y: auto;
+    font-family: ui-monospace, Menlo, monospace; font-size: 12.5px;
+  }
+  .line { padding: 1px 0; white-space: pre-wrap; word-break: break-word; }
+  .src { font-weight: 700; }
+  .src.client { color: var(--client); }
+  .src.server { color: var(--server); }
+  .src.llm { color: var(--llm); }
+  .src.error { color: var(--err); }
+  #result {
+    background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 14px; margin-top: 16px; min-height: 60px; white-space: pre-wrap;
+    font-family: ui-monospace, Menlo, monospace; font-size: 13px;
+  }
+  #result .empty { color: var(--muted); font-style: italic; }
+
+  /* modal */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.6);
+    display: none; align-items: center; justify-content: center; padding: 16px; z-index: 10;
+  }
+  .overlay.show { display: flex; }
+  .modal {
+    background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+    width: 100%; max-width: 440px; padding: 20px;
+  }
+  .modal h3 { margin: 0 0 4px; font-size: 15px; }
+  .modal .hint { color: var(--client); font-size: 11px; margin: 0 0 14px; }
+  .checkrow { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+  .checkrow input { width: auto; }
+  .modal .actions { display: flex; gap: 8px; margin-top: 18px; }
+  .modal .actions button { margin-top: 0; flex: 1; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>MCP Client Primitives</h1>
+    <span class="sub">sampling &amp; elicitation, live in the browser</span>
+    <span id="llmBadge" class="badge">llm: …</span>
+  </header>
+
+  <main>
+    <section>
+      <div class="card">
+        <span class="tag sampling">Sampling</span>
+        <h2>create_product</h2>
+        <p class="desc">The server asks the client to run an LLM and generate a product description.</p>
+        <label>Product name</label>
+        <input type="text" id="cp_name" value="EcoBottle" />
+        <label>Keywords</label>
+        <input type="text" id="cp_keywords" value="sustainable, stainless steel, keeps drinks cold 24h" />
+        <button data-run="create_product">Run sampling</button>
+      </div>
+
+      <div class="card">
+        <span class="tag elicit">Elicitation</span>
+        <h2>book_vacation</h2>
+        <p class="desc">The server pauses and asks <em>you</em> to confirm booking details via a form.</p>
+        <label>Destination</label>
+        <input type="text" id="bv_destination" value="Paris" />
+        <button data-run="book_vacation">Run elicitation</button>
+      </div>
+
+      <div class="card">
+        <span class="tag both">Both</span>
+        <h2>recommend_flight</h2>
+        <p class="desc">Elicits your preferences (form), then samples the LLM to pick a flight.</p>
+        <label>Flights on offer</label>
+        <textarea id="rf_flights">1) AirOne   06:10 -> 14:30  $420  1 layover
+2) SkyJet   09:00 -> 12:15  $560  nonstop
+3) BudgetAir 22:40 -> 06:05 $310  2 layovers
+4) GlobalWings 07:30 -> 15:50 $480 1 layover</textarea>
+        <button data-run="recommend_flight">Run both</button>
+      </div>
+    </section>
+
+    <section>
+      <p class="panel-title">Live event log</p>
+      <div id="log"></div>
+      <p class="panel-title" style="margin-top:16px">Tool result</p>
+      <div id="result"><span class="empty">Run a demo to see the result here.</span></div>
+    </section>
+  </main>
+
+  <div class="overlay" id="overlay">
+    <div class="modal">
+      <h3 id="modalMsg">…</h3>
+      <p class="hint">This form was generated from the schema the server sent.</p>
+      <div id="modalFields"></div>
+      <div class="actions">
+        <button id="submitBtn">Submit</button>
+        <button class="secondary" id="declineBtn">Decline</button>
+        <button class="secondary" id="cancelBtn">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+const logEl = document.getElementById('log');
+const resultEl = document.getElementById('result');
+const overlay = document.getElementById('overlay');
+const modalMsg = document.getElementById('modalMsg');
+const modalFields = document.getElementById('modalFields');
+let currentElicitId = null;
+let busy = false;
+
+function setBusy(v) {
+  busy = v;
+  document.querySelectorAll('button[data-run]').forEach(b => b.disabled = v);
+}
+
+function logLine(source, text) {
+  const div = document.createElement('div');
+  div.className = 'line';
+  const tag = document.createElement('span');
+  tag.className = 'src ' + source;
+  tag.textContent = '[' + source + '] ';
+  div.appendChild(tag);
+  div.appendChild(document.createTextNode(text));
+  logEl.appendChild(div);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+// ----- status badge -----
+fetch('/api/status').then(r => r.json()).then(s => {
+  const b = document.getElementById('llmBadge');
+  b.textContent = 'llm: ' + s.llm_mode;
+  if (s.real) b.classList.add('real');
+});
+
+// ----- event stream -----
+const es = new EventSource('/events');
+es.onmessage = (e) => {
+  const ev = JSON.parse(e.data);
+  if (ev.kind === 'log')          logLine(ev.source, ev.text);
+  else if (ev.kind === 'running') { resultEl.innerHTML = '<span class="empty">running ' + ev.tool + '…</span>'; }
+  else if (ev.kind === 'result')  { resultEl.textContent = ev.text; }
+  else if (ev.kind === 'error')   { logLine('error', ev.text); resultEl.textContent = ev.text; }
+  else if (ev.kind === 'done')    { setBusy(false); }
+  else if (ev.kind === 'form_request') openForm(ev);
+};
+
+// ----- run buttons -----
+document.querySelectorAll('button[data-run]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (busy) return;
+    const tool = btn.dataset.run;
+    let args = {};
+    if (tool === 'create_product')
+      args = { product_name: val('cp_name'), keywords: val('cp_keywords') };
+    else if (tool === 'book_vacation')
+      args = { destination: val('bv_destination') };
+    else if (tool === 'recommend_flight')
+      args = { flight_data: val('rf_flights') };
+    setBusy(true);
+    resultEl.innerHTML = '<span class="empty">running ' + tool + '…</span>';
+    fetch('/api/run/' + tool, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(args),
+    });
+  });
+});
+function val(id) { return document.getElementById(id).value; }
+
+// ----- elicitation form (built from the schema) -----
+function openForm(ev) {
+  currentElicitId = ev.id;
+  modalMsg.textContent = ev.message;
+  modalFields.innerHTML = '';
+  const props = (ev.schema && ev.schema.properties) || {};
+  for (const [name, spec] of Object.entries(props)) {
+    modalFields.appendChild(buildField(name, spec));
+  }
+  overlay.classList.add('show');
+}
+
+function buildField(name, spec) {
+  const wrap = document.createElement('div');
+  const desc = spec.description || name;
+  const def = spec.default;
+  let enumVals = spec.enum;
+  if (!enumVals && Array.isArray(spec.anyOf))
+    enumVals = spec.anyOf.flatMap(s => s.enum || []);
+
+  if (enumVals && enumVals.length) {
+    const lbl = document.createElement('label'); lbl.textContent = desc; wrap.appendChild(lbl);
+    const sel = document.createElement('select'); sel.dataset.name = name; sel.dataset.kind = 'string';
+    enumVals.forEach(v => {
+      const o = document.createElement('option'); o.value = v; o.textContent = v;
+      if (v === def) o.selected = true; sel.appendChild(o);
+    });
+    wrap.appendChild(sel);
+  } else if (spec.type === 'boolean') {
+    const row = document.createElement('div'); row.className = 'checkrow';
+    const cb = document.createElement('input'); cb.type = 'checkbox';
+    cb.dataset.name = name; cb.dataset.kind = 'boolean'; cb.checked = !!def;
+    const lbl = document.createElement('label'); lbl.textContent = desc; lbl.style.margin = '0';
+    row.appendChild(cb); row.appendChild(lbl); wrap.appendChild(row);
+  } else if (spec.type === 'integer' || spec.type === 'number') {
+    const lbl = document.createElement('label'); lbl.textContent = desc; wrap.appendChild(lbl);
+    const inp = document.createElement('input'); inp.type = 'text';
+    inp.dataset.name = name; inp.dataset.kind = spec.type;
+    if (def !== undefined) inp.value = def;
+    if (spec.minimum !== undefined) inp.placeholder = 'min ' + spec.minimum;
+    wrap.appendChild(inp);
+  } else {
+    const lbl = document.createElement('label'); lbl.textContent = desc; wrap.appendChild(lbl);
+    const inp = document.createElement('input'); inp.type = 'text';
+    inp.dataset.name = name; inp.dataset.kind = 'string';
+    if (def !== undefined) inp.value = def;
+    wrap.appendChild(inp);
+  }
+  return wrap;
+}
+
+function collect() {
+  const content = {};
+  modalFields.querySelectorAll('[data-name]').forEach(el => {
+    const name = el.dataset.name, kind = el.dataset.kind;
+    if (kind === 'boolean') content[name] = el.checked;
+    else if (kind === 'integer') content[name] = parseInt(el.value || '0', 10);
+    else if (kind === 'number') content[name] = parseFloat(el.value || '0');
+    else content[name] = el.value;
+  });
+  return content;
+}
+
+function respond(action) {
+  const body = { action };
+  if (action === 'accept') body.content = collect();
+  fetch('/api/elicit/' + currentElicitId, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  overlay.classList.remove('show');
+  currentElicitId = null;
+}
+
+document.getElementById('submitBtn').onclick = () => respond('accept');
+document.getElementById('declineBtn').onclick = () => respond('decline');
+document.getElementById('cancelBtn').onclick = () => respond('cancel');
+</script>
+</body>
+</html>

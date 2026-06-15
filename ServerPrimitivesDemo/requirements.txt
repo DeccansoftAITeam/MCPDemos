@@ -1,0 +1,4 @@
+mcp[cli]
+sqlalchemy
+openai
+python-dotenv

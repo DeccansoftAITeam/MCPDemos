@@ -7,7 +7,7 @@ from database import init_db, SessionLocal, Course, Faculty, Batch, Student, Enr
 init_db()
 
 # ── MCP Server ────────────────────────────────────────────────────────────────
-mcp = FastMCP("Deccansoft Institute MCP")
+mcp = FastMCP("Deccansoft Institute MCP") #, port=8000)
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -414,9 +414,15 @@ Tone: Friendly, honest, and advisory.
 
 # ═════════════════════════════════════════════════════════════════════════════
 # ENTRY POINT
-# To run locally  : python main.py           (stdio — works with MCP Inspector)
-# To host remotely: change transport to "sse" or "streamable-http" (future step)
+# stdio (default) : python main.py           → used by stdio_client.py & MCP Inspector
+# HTTP            : python main.py http      → used by http_client.py
 # ═════════════════════════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
+    import sys
     mcp.run(transport="stdio")
+
+    # if len(sys.argv) > 1 and sys.argv[1] == "http":
+    #     print("Starting MCP server on http://127.0.0.1:8000/mcp ...")
+    # else:
+    #     mcp.run(transport="stdio")
