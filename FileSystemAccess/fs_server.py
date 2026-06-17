@@ -17,7 +17,8 @@ ROOT = Path(os.environ.get("DOCS_ROOT", "./documents")).resolve()
 
 mcp = FastMCP("Filesystem Resource Server")
 
-def _safe_path(relative: str) -> Path:
+
+def _safe_path(relative: str) -> Path:    
     """It returns a Path object — absolute path to the requested file or directory, 
     but only if that path is safely inside ROOT."""
     absolutePath = (ROOT / relative).resolve()

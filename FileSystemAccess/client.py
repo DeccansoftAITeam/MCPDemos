@@ -2,7 +2,7 @@ import asyncio
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
-server = StdioServerParameters(command="python", args=["test.py"])
+server = StdioServerParameters(command="python", args=["fs_server.py"])
 
 async def main():
     async with stdio_client(server) as (r, w), ClientSession(r, w) as s:
