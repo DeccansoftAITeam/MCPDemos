@@ -1,6 +1,6 @@
 import json
 from datetime import date
-from mcp.server.fastmcp import FastMCP, Context
+from mcp.server.mcpserver import MCPServer, Context
 from mcp.types import SamplingMessage, TextContent
 from pydantic import BaseModel
 from database import init_db, SessionLocal, Course, Faculty, Batch, Student, Enrollment
@@ -9,7 +9,7 @@ from database import init_db, SessionLocal, Course, Faculty, Batch, Student, Enr
 init_db()
 
 # ── MCP Server ────────────────────────────────────────────────────────────────
-mcp = FastMCP("Deccansoft Institute MCP")
+mcp = MCPServer("Deccansoft Institute MCP")
 
 
 # ═════════════════════════════════════════════════════════════════════════════
