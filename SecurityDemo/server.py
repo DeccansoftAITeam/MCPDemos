@@ -11,7 +11,8 @@ from typing import Any
 import datetime
 
 from dotenv import load_dotenv
-from mcp.server.fastmcp.server import FastMCP
+#from mcp.server.fastmcp.server import FastMCP
+from mcp.server.mcpserver import MCPServer
 import uvicorn
 
 from auth_middleware import CustomHeaderMiddleware
@@ -23,11 +24,11 @@ settings = {
     "port": 8000,
 }
 
-mcp = FastMCP(
+mcp = MCPServer(
     name="MCP Resource Server",
     instructions="Resource Server that validates tokens via Authorization Server introspection",
-    host=settings["host"],
-    port=settings["port"],
+    # host=settings["host"],
+    # port=settings["port"],
     debug=True,
 )
 
@@ -55,8 +56,8 @@ def main():
     # We pass the app object directly so requests go through the custom middleware added earlier.
     uvicorn.run(
         app,
-        host=mcp.settings.host,
-        port=mcp.settings.port,
+        host=settings["host"],
+        port=settings["port"],
         log_level=mcp.settings.log_level.lower(),
     )
 

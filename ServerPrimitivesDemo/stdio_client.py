@@ -41,7 +41,7 @@ async def handle_tools(session: ClientSession):
 
     # Collect arguments dynamically from JSON schema
     args = {}
-    schema = tool.inputSchema or {}
+    schema = tool.input_schema or {}
     properties = schema.get("properties", {})
     required    = schema.get("required", [])
 
@@ -79,14 +79,14 @@ async def handle_resources(session: ClientSession):
             print(f"     {label}")
             items.append((str(r.uri), False))
 
-    if templates.resourceTemplates:
+    if templates.resource_templates:
         offset = len(items)
         section("Resource Templates  (parameterised)")
-        for i, t in enumerate(templates.resourceTemplates, offset + 1):
+        for i, t in enumerate(templates.resource_templates, offset + 1):
             label = t.description or t.name
-            print(f"  {i}. {t.uriTemplate}")
+            print(f"  {i}. {t.uri_template}")
             print(f"     {label}")
-            items.append((t.uriTemplate, True))
+            items.append((t.uri_template, True))
 
     if not items:
         print("  No resources available.")

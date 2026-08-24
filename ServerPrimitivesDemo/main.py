@@ -414,142 +414,142 @@ Tone: Friendly, honest, and advisory.
 """
 
 
-# ═════════════════════════════════════════════════════════════════════════════
-# MODULE 9 — ADVANCED PROTOCOL FEATURES
-# ═════════════════════════════════════════════════════════════════════════════
+# # ═════════════════════════════════════════════════════════════════════════════
+# # MODULE 9 — ADVANCED PROTOCOL FEATURES
+# # ═════════════════════════════════════════════════════════════════════════════
 
-# ── Pydantic model for elicitation schema ─────────────────────────────────────
-class EnrollmentConfirmation(BaseModel):
-    confirm: bool
-    discount_requested: bool = False
-    notes: str = ""
-
-
-# ── SAMPLING: server asks client to run LLM ───────────────────────────────────
-
-@mcp.tool()
-async def generate_course_summary(course_id: int, ctx: Context) -> str:
-    """Generate an AI-written course summary using sampling (LLM runs on the client side)."""
-    db = SessionLocal()
-    try:
-        course = db.query(Course).filter(Course.id == course_id).first()
-        if not course:
-            return f"Course ID {course_id} not found."
-
-        batches_info = "\n".join([
-            f"  - Batch {b.id}: {b.schedule} | Faculty: {b.faculty.name} | Students: {len(b.enrollments)}"
-            for b in course.batches
-        ]) or "  No active batches currently."
-
-        prompt = (
-            f"Write a compelling 2-3 paragraph course summary for a software training institute website.\n\n"
-            f"Course  : {course.title}\n"
-            f"About   : {course.description}\n"
-            f"Duration: {course.duration_weeks} weeks\n"
-            f"Fees    : Rs.{course.fees}\n"
-            f"Batches :\n{batches_info}\n\n"
-            f"Cover: what students will learn, career outcomes, and why they should join. "
-            f"Tone: professional yet motivating."
-        )
-
-        await ctx.info(f"Requesting LLM summary for: {course.title}")
-
-        result = await ctx.session.create_message(
-            messages=[
-                SamplingMessage(
-                    role="user",
-                    content=TextContent(type="text", text=prompt),
-                )
-            ],
-            max_tokens=400,
-            system_prompt="You are a professional content writer for a software training institute.",
-        )
-
-        return f"=== AI Summary: {course.title} ===\n\n{result.content.text}"
-
-    finally:
-        db.close()
+# # ── Pydantic model for elicitation schema ─────────────────────────────────────
+# class EnrollmentConfirmation(BaseModel):
+#     confirm: bool
+#     discount_requested: bool = False
+#     notes: str = ""
 
 
-# ── ELICITATION: server asks user for structured input ────────────────────────
+# # ── SAMPLING: server asks client to run LLM ───────────────────────────────────
 
-@mcp.tool()
-async def enroll_with_confirmation(student_name: str, batch_id: int, ctx: Context) -> str:
-    """Enroll a student after getting explicit confirmation via elicitation."""
-    db = SessionLocal()
-    try:
-        student = db.query(Student).filter(
-            Student.name.ilike(f"%{student_name}%")
-        ).first()
-        if not student:
-            return f"Student '{student_name}' not found."
+# @mcp.tool()
+# async def generate_course_summary(course_id: int, ctx: Context) -> str:
+#     """Generate an AI-written course summary using sampling (LLM runs on the client side)."""
+#     db = SessionLocal()
+#     try:
+#         course = db.query(Course).filter(Course.id == course_id).first()
+#         if not course:
+#             return f"Course ID {course_id} not found."
 
-        batch = db.query(Batch).filter(Batch.id == batch_id).first()
-        if not batch:
-            return f"Batch ID {batch_id} not found."
+#         batches_info = "\n".join([
+#             f"  - Batch {b.id}: {b.schedule} | Faculty: {b.faculty.name} | Students: {len(b.enrollments)}"
+#             for b in course.batches
+#         ]) or "  No active batches currently."
 
-        already = db.query(Enrollment).filter(
-            Enrollment.student_id == student.id,
-            Enrollment.batch_id   == batch_id
-        ).first()
-        if already:
-            return f"{student.name} is already enrolled in this batch."
+#         prompt = (
+#             f"Write a compelling 2-3 paragraph course summary for a software training institute website.\n\n"
+#             f"Course  : {course.title}\n"
+#             f"About   : {course.description}\n"
+#             f"Duration: {course.duration_weeks} weeks\n"
+#             f"Fees    : Rs.{course.fees}\n"
+#             f"Batches :\n{batches_info}\n\n"
+#             f"Cover: what students will learn, career outcomes, and why they should join. "
+#             f"Tone: professional yet motivating."
+#         )
 
-        # Ask the client (user) to confirm before proceeding
-        result = await ctx.elicit(
-            message=(
-                f"Confirm Enrollment Details\n\n"
-                f"Student : {student.name} ({student.email})\n"
-                f"Course  : {batch.course.title}\n"
-                f"Batch   : {batch.id} — {batch.schedule}\n"
-                f"Faculty : {batch.faculty.name}\n"
-                f"Fees    : Rs.{batch.course.fees}"
-            ),
-            schema=EnrollmentConfirmation,
-        )
+#         await ctx.info(f"Requesting LLM summary for: {course.title}")
 
-        if result.action != "accept":
-            return f"Enrollment cancelled (user action: {result.action})."
+#         result = await ctx.session.create_message(
+#             messages=[
+#                 SamplingMessage(
+#                     role="user",
+#                     content=TextContent(type="text", text=prompt),
+#                 )
+#             ],
+#             max_tokens=400,
+#             system_prompt="You are a professional content writer for a software training institute.",
+#         )
 
-        if not result.data or not result.data.confirm:
-            return "Enrollment not confirmed by user."
+#         return f"=== AI Summary: {course.title} ===\n\n{result.content.text}"
 
-        db.add(Enrollment(
-            student_id=student.id,
-            batch_id=batch_id,
-            enrollment_date=str(date.today()),
-            status="active",
-        ))
-        db.commit()
-
-        discount = "Yes — to be processed." if result.data.discount_requested else "No"
-        notes    = result.data.notes or "None"
-        return (
-            f"Enrolled: {student.name} in Batch {batch_id} ({batch.course.title}).\n"
-            f"  Discount requested : {discount}\n"
-            f"  Notes              : {notes}"
-        )
-
-    except Exception as e:
-        db.rollback()
-        return f"Error: {e}"
-    finally:
-        db.close()
+#     finally:
+#         db.close()
 
 
-# ── ROOTS: server reads the filesystem roots declared by the client ───────────
+# # ── ELICITATION: server asks user for structured input ────────────────────────
 
-@mcp.tool()
-async def list_roots(ctx: Context) -> str:
-    """List the filesystem roots declared by the client (demonstrates Roots feature)."""
-    try:
-        result = await ctx.session.list_roots()
-        if not result.roots:
-            return "No roots declared by the client."
-        roots = [{"uri": str(r.uri), "name": r.name or "unnamed"} for r in result.roots]
-        return json.dumps({"declared_roots": roots, "count": len(roots)}, indent=2)
-    except Exception as e:
-        return f"Error listing roots: {e}"
+# @mcp.tool()
+# async def enroll_with_confirmation(student_name: str, batch_id: int, ctx: Context) -> str:
+#     """Enroll a student after getting explicit confirmation via elicitation."""
+#     db = SessionLocal()
+#     try:
+#         student = db.query(Student).filter(
+#             Student.name.ilike(f"%{student_name}%")
+#         ).first()
+#         if not student:
+#             return f"Student '{student_name}' not found."
+
+#         batch = db.query(Batch).filter(Batch.id == batch_id).first()
+#         if not batch:
+#             return f"Batch ID {batch_id} not found."
+
+#         already = db.query(Enrollment).filter(
+#             Enrollment.student_id == student.id,
+#             Enrollment.batch_id   == batch_id
+#         ).first()
+#         if already:
+#             return f"{student.name} is already enrolled in this batch."
+
+#         # Ask the client (user) to confirm before proceeding
+#         result = await ctx.elicit(
+#             message=(
+#                 f"Confirm Enrollment Details\n\n"
+#                 f"Student : {student.name} ({student.email})\n"
+#                 f"Course  : {batch.course.title}\n"
+#                 f"Batch   : {batch.id} — {batch.schedule}\n"
+#                 f"Faculty : {batch.faculty.name}\n"
+#                 f"Fees    : Rs.{batch.course.fees}"
+#             ),
+#             schema=EnrollmentConfirmation,
+#         )
+
+#         if result.action != "accept":
+#             return f"Enrollment cancelled (user action: {result.action})."
+
+#         if not result.data or not result.data.confirm:
+#             return "Enrollment not confirmed by user."
+
+#         db.add(Enrollment(
+#             student_id=student.id,
+#             batch_id=batch_id,
+#             enrollment_date=str(date.today()),
+#             status="active",
+#         ))
+#         db.commit()
+
+#         discount = "Yes — to be processed." if result.data.discount_requested else "No"
+#         notes    = result.data.notes or "None"
+#         return (
+#             f"Enrolled: {student.name} in Batch {batch_id} ({batch.course.title}).\n"
+#             f"  Discount requested : {discount}\n"
+#             f"  Notes              : {notes}"
+#         )
+
+#     except Exception as e:
+#         db.rollback()
+#         return f"Error: {e}"
+#     finally:
+#         db.close()
+
+
+# # ── ROOTS: server reads the filesystem roots declared by the client ───────────
+
+# @mcp.tool()
+# async def list_roots(ctx: Context) -> str:
+#     """List the filesystem roots declared by the client (demonstrates Roots feature)."""
+#     try:
+#         result = await ctx.session.list_roots()
+#         if not result.roots:
+#             return "No roots declared by the client."
+#         roots = [{"uri": str(r.uri), "name": r.name or "unnamed"} for r in result.roots]
+#         return json.dumps({"declared_roots": roots, "count": len(roots)}, indent=2)
+#     except Exception as e:
+#         return f"Error listing roots: {e}"
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -561,7 +561,7 @@ async def list_roots(ctx: Context) -> str:
 if __name__ == "__main__":
     import sys
     if len(sys.argv) > 1 and sys.argv[1] == "http":
-        print("Starting MCP server on http://127.0.0.1:8000/mcp ...")
-        mcp.run(transport="streamable-http", host="127.0.0.1", port=8000)
+        print("Starting MCP server on http://localhost:8000/mcp ...")
+        mcp.run(transport="streamable-http")
     else:
         mcp.run(transport="stdio")

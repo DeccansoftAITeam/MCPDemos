@@ -1,92 +1,85 @@
 """
-client.py — the MCP client (stdio). Spawns server.py and drives it live.
+flight_client.py — the MCP client (stdio). Spawns flight_server.py and drives it live.
 
 It registers the two callbacks that make the "direction flip" possible:
 
   sampling_callback     fires when the server calls create_message()
-                        -> we run the LLM (llm.call_llm) and return the text.
+                        -> we call the LLM directly and return the text.
 
   elicitation_callback  fires when the server calls ctx.elicit()
                         -> we render a console form, collect the user's input,
                            and return accept / decline / cancel.
 
-Run:  python client.py
-The client launches server.py automatically over stdio.
+Run:  python flight_client.py
+The client launches flight_server.py automatically over stdio.
 """
 
 import asyncio
 import os
 import sys
+from openai import AsyncOpenAI
+from dotenv import load_dotenv
+
+load_dotenv()  # load .env file if present
 
 from mcp import ClientSession, types
 from mcp.client.stdio import stdio_client, StdioServerParameters
-from mcp.shared.context import RequestContext
+from mcp.client.session import ClientRequestContext
 
-import llm
+_API_KEY = os.getenv("OPENAI_API_KEY")
 
-
-# ---------------------------------------------------------------------------
-# Tiny console helpers (client stdout is the user's terminal — printing is fine)
-# ---------------------------------------------------------------------------
-def c(msg: str) -> None:
-    print(f"[CLIENT] {msg}", flush=True)
-
-
-def rule(title: str) -> None:
-    print("\n" + "=" * 64)
-    print(f"  {title}")
-    print("=" * 64)
-
-
-# ---------------------------------------------------------------------------
-# SAMPLING callback — the client runs the LLM on the server's behalf
-# ---------------------------------------------------------------------------
 async def handle_sampling_message(
-    context: RequestContext["ClientSession", None],
+    context: ClientRequestContext,
     params: types.CreateMessageRequestParams,
 ) -> types.CreateMessageResult:
-    c("sampling_callback fired — the server asked for an LLM completion.")
+    print(f"[CLIENT] sampling_callback fired — the server asked for an LLM completion.", flush=True)
 
     # Everything the server sent is in params.
     user_text = params.messages[0].content.text
-    system_prompt = params.systemPrompt or ""
+    system_prompt = params.system_prompt or ""
 
-    c(f"  calling LLM...")
-    response = await llm.call_llm(user_text, system_prompt=system_prompt)
-    c("  returning the completion to the server.")
-
+    print(f"  calling LLM...", flush=True)
+    client = AsyncOpenAI(api_key=_API_KEY)
+    response = await client.chat.completions.create(
+        model="gpt-5.6-luna",
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_text},
+        ],
+    )
+    print(f"  returning the completion to the server.", flush=True)
+    response = response.choices[0].message.content
     return types.CreateMessageResult(
         role="assistant",
         content=types.TextContent(type="text", text=response),
-        model=llm.MODEL,
+        model="gpt-5.6-luna",
         stopReason="endTurn",
     )
-
 
 # ---------------------------------------------------------------------------
 # ELICITATION callback — the client renders a form and collects user input
 # ---------------------------------------------------------------------------
 async def handle_elicitation(
-    context: RequestContext["ClientSession", None],
+    context: ClientRequestContext,
     params: types.ElicitRequestParams,
 ) -> types.ElicitResult:
-    c("elicitation_callback fired — the server is asking the user for input.")
+    print(f"[CLIENT] elicitation_callback fired — the server is asking the user for input.", flush=True)
 
-    schema = params.requestedSchema or {}
+    schema = params.requested_schema or {}
     print(f"\n  {params.message}")
     choice = input(
         "  Proceed? [Enter = fill form,  d = decline,  c = cancel]: "
     ).strip().lower()
 
     if choice == "d":
-        c("  user declined.")
+        print(f"[CLIENT]   user declined.", flush=True)
         return types.ElicitResult(action="decline")
     if choice == "c":
-        c("  user cancelled.")
+        print(f"[CLIENT]   user cancelled.", flush=True)
         return types.ElicitResult(action="cancel")
 
     answers = _fill_form(schema)
-    c("  submitting the user's answers to the server.")
+    print(f"[CLIENT]   submitting the user's answers to the server.", flush=True)
     return types.ElicitResult(action="accept", content=answers)
 
 
@@ -154,34 +147,16 @@ def _result_text(result) -> str:
     parts = [b.text for b in result.content if isinstance(b, types.TextContent)]
     return "\n".join(parts)
 
-
-async def demo_sampling(session: ClientSession) -> None:
-    rule("SAMPLING demo  ->  create_product")
-    name = input("Product name [EcoBottle]: ").strip() or "EcoBottle"
-    keywords = (
-
-        input("Keywords [sustainable, stainless steel, keeps drinks cold 24h]: ").strip()
-        or "sustainable, stainless steel, keeps drinks cold 24h"
-    )
-    c(f"calling tool create_product(name='{name}')...")
-    result = await session.call_tool(
-        "create_product", {"product_name": name, "keywords": keywords}
-    )
-    print("\n--- tool result ---")
-    print(_result_text(result))
-
-
 async def demo_elicitation(session: ClientSession) -> None:
-    rule("ELICITATION demo  ->  book_vacation")
+    print("ELICITATION demo  ->  book_vacation")
     destination = input("Destination [Paris]: ").strip() or "Paris"
-    c(f"calling tool book_vacation(destination='{destination}')...")
+    print(f"calling tool book_vacation(destination='{destination}')...", flush=True)
     result = await session.call_tool("book_vacation", {"destination": destination})
     print("\n--- tool result ---")
     print(_result_text(result))
 
-
 async def demo_both(session: ClientSession) -> None:
-    rule("BOTH demo  ->  recommend_flight  (elicit, then sample)")
+    print("BOTH demo  ->  recommend_flight  (elicit, then sample)", flush=True)
     flight_data = (
         "1) AirOne   06:10 -> 14:30  $420  1 layover\n"
         "2) SkyJet   09:00 -> 12:15  $560  nonstop\n"
@@ -190,7 +165,7 @@ async def demo_both(session: ClientSession) -> None:
     )
     print("Flights on offer:")
     print(flight_data)
-    c("calling tool recommend_flight(...)  [will elicit, then sample]")
+    print("calling tool recommend_flight(...)  [will elicit, then sample]", flush=True)
     result = await session.call_tool("recommend_flight", {"flight_data": flight_data})
     print("\n--- tool result ---")
     print(_result_text(result))
@@ -200,10 +175,10 @@ async def demo_both(session: ClientSession) -> None:
 # Main — spawn the server, wire both callbacks, run the menu
 # ---------------------------------------------------------------------------
 async def main() -> None:
-    server_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "server.py")
+    server_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "flight_server.py")
     server_params = StdioServerParameters(command=sys.executable, args=[server_path])
 
-    rule("MCP Client Primitives — Sampling & Elicitation")    
+    print("MCP Client Primitives — Sampling & Elicitation", flush=True)
 
     async with stdio_client(server_params) as (read, write):
         async with ClientSession(
@@ -213,25 +188,22 @@ async def main() -> None:
             elicitation_callback=handle_elicitation,
         ) as session:
             await session.initialize()
-            c("connected to travel-server.")
+            print("connected to travel-server.", flush=True)
 
             while True:
                 print(
                     "\nChoose a demo:\n"
-                    "  1) Sampling      -> create_product\n"
-                    "  2) Elicitation   -> book_vacation\n"
-                    "  3) Both          -> recommend_flight\n"
+                    "  1) Elicitation   -> book_vacation\n"
+                    "  2) Both          -> recommend_flight\n"
                     "  q) quit"
                 )
                 pick = input("> ").strip().lower()
                 if pick == "1":
-                    await demo_sampling(session)
-                elif pick == "2":
                     await demo_elicitation(session)
-                elif pick == "3":
+                elif pick == "2":
                     await demo_both(session)
                 elif pick in ("q", "quit", "exit"):
-                    c("bye.")
+                    print("bye.", flush=True)
                     break
                 else:
                     print("Pick 1, 2, 3, or q.")

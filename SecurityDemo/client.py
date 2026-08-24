@@ -20,16 +20,17 @@ async def main():
         print("TOKEN not found in .env file, run util.py to generate one.")
         raise ValueError("TOKEN not found in .env file")
 
-    http_client = httpx.AsyncClient(headers={"Authorization": f"Bearer {token}"})
-
-    async with streamable_http_client(
-        url=f"http://localhost:{port}/mcp",
-        http_client=http_client,
-    ) as (read_stream, write_stream, _):
-        async with ClientSession(read_stream, write_stream) as session:
-            await session.initialize()
-            tool_result = await session.call_tool("get_time", {})
-            print("Tool result: %s", tool_result.content[0].text)
+    async with httpx.AsyncClient(
+        headers={"Authorization": f"Bearer {token}"}
+    ) as http_client:
+        async with streamable_http_client(
+            url=f"http://localhost:{port}/mcp",
+            http_client=http_client,
+        ) as (read_stream, write_stream):
+            async with ClientSession(read_stream, write_stream) as session:
+                await session.initialize()
+                tool_result = await session.call_tool("get_time", {})
+                print(f"Tool result: {tool_result.content[0].text}")
 
 
 if __name__ == "__main__":

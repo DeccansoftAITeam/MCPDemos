@@ -2,3 +2,5 @@ mcp[cli]
 PyJWT
 python-dotenv
 requests
+dotenv  
+httpx

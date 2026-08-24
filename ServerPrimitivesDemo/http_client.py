@@ -53,7 +53,7 @@ async def handle_tools(session: ClientSession):
     print(f"  Desc  : {tool.description}")
 
     args       = {}
-    schema     = tool.inputSchema or {}
+    schema     = tool.input_schema or {}
     properties = schema.get("properties", {})
     required   = schema.get("required", [])
 

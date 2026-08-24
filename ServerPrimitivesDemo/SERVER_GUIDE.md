@@ -16,7 +16,6 @@ institute-mcp/
 ## Step 1 — Create a Virtual Environment
 
 ```bash
-cd institute-mcp
 python -m venv venv
 
 # Windows

@@ -18,7 +18,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from mcp.server.fastmcp import FastMCP, Context
+from mcp.server.mcpserver import MCPServer, Context
 from mcp.server.session import ServerSession
 from mcp.types import (
     SamplingMessage,
@@ -27,7 +27,7 @@ from mcp.types import (
     ModelHint,
 )
 
-mcp = FastMCP("travel-server")
+mcp = MCPServer("travel-server")
 
 
 def log(msg: str) -> None:
@@ -58,7 +58,6 @@ class BookingConfirmation(BaseModel):
         description="Add travel insurance ($150)",
     )
  
- 
 class FlightPreferences(BaseModel):
     departureTime: str = Field(
         default="no preference",
@@ -73,41 +72,7 @@ class FlightPreferences(BaseModel):
     )
     
 # ---------------------------------------------------------------------------
-# 1. SAMPLING — create_product
-# ---------------------------------------------------------------------------
-@mcp.tool()
-async def create_product(
-    product_name: str,
-    keywords: str,
-    ctx: Context[ServerSession, None],
-) -> str:
-    """Create a product and generate its description using LLM sampling."""
-    prompt = (
-        f"Create a product description about {product_name} "
-        f"described as {keywords}"
-    )
-
-    log(f"create_product: requesting sampling for '{product_name}'...")
-    # Server -> Client: ask the client's LLM to generate text. The server
-    # has no model key — create_message() hands the work to the client.
-    result = await ctx.session.create_message(
-        messages=[
-            SamplingMessage(
-                role="user",
-                content=TextContent(type="text", text=prompt),
-            )
-        ],
-        system_prompt="You are a helpful assistant. Create a compelling product description.",
-        max_tokens=200,
-    )
-
-    description = result.content.text
-    log("create_product: received description, returning JSON.")
-    return json.dumps({"name": product_name, "description": description}, indent=2)
-
-
-# ---------------------------------------------------------------------------
-# 2. ELICITATION — book_vacation
+# 1. ELICITATION — book_vacation
 # ---------------------------------------------------------------------------
 @mcp.tool()
 async def book_vacation(
@@ -143,7 +108,7 @@ async def book_vacation(
 
 
 # ---------------------------------------------------------------------------
-# 3. BOTH — recommend_flight (elicit preferences, then sample the LLM)
+# 2. BOTH — recommend_flight (elicit preferences, then sample the LLM)
 # ---------------------------------------------------------------------------
 @mcp.tool()
 async def recommend_flight(
@@ -196,7 +161,6 @@ async def recommend_flight(
 
     log("recommend_flight: received recommendation, returning.")
     return result.content.text
-
 
 if __name__ == "__main__":
     log("travel-server starting on stdio...")
