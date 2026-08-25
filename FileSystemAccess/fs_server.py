@@ -10,13 +10,12 @@ import os
 import sys
 from pathlib import Path
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 
 # Sandbox root: only files under here are exposed. Override with DOCS_ROOT.
 ROOT = Path(os.environ.get("DOCS_ROOT", "./documents")).resolve()
 
-mcp = FastMCP("Filesystem Resource Server")
-
+mcp = MCPServer("Filesystem Resource Server")
 
 def _safe_path(relative: str) -> Path:    
     """It returns a Path object — absolute path to the requested file or directory, 
@@ -32,10 +31,11 @@ def list_documents(subdir: str = "") -> str:
     base = _safe_path(subdir)
     if not base.is_dir():
         raise ValueError(f"Not a directory: '{subdir}'")
+    # Following code lists all files under the base directory, sorts them.
     files = sorted(p for p in base.rglob("*") if p.is_file())
     total = len(files)    
-    items = [str(p.relative_to(ROOT)) for p in files]
-    return json.dumps({"root": str(ROOT), "total": total, "documents": items})
+    docs = [str(p.relative_to(ROOT)) for p in files]
+    return json.dumps({"root": str(ROOT), "total": total, "documents": docs})
 
 @mcp.tool()
 def read_file(filepath: str) -> str:

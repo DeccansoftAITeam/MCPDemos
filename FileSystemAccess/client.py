@@ -25,7 +25,10 @@ async def main():
         # Test path containment - Attempt to escape the sandbox, should fail
         dirList = await s.call_tool("list_documents", arguments={"subdir": "not-in-documents"})
         print("List:", dirList.content[0].text)
-        notesContent = await s.call_tool("read_file", arguments={"filepath": "..\\not-in-documents\\todo.txt"})
-        print("Escape:", notesContent.isError, notesContent.content[0].text)
+        try:
+            notesContent = await s.call_tool("read_file", arguments={"filepath": "..\\not-in-documents\\todo.txt"})
+            print("Escape:", notesContent.is_error, notesContent.content[0].text)
+        except Exception as e:
+            print("Escape:", e)
 
 asyncio.run(main())

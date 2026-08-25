@@ -27,23 +27,13 @@ settings = {
 mcp = MCPServer(
     name="MCP Resource Server",
     instructions="Resource Server that validates tokens via Authorization Server introspection",
-    # host=settings["host"],
-    # port=settings["port"],
-    debug=True,
+    #debug=True,
 )
-
 
 @mcp.tool()
 async def get_time() -> dict[str, Any]:
-    """
-    Get the current server time.
-
-    This tool demonstrates that system information can be protected
-    by OAuth authentication. User must be authenticated to access it.
-    """
     now = datetime.datetime.now()
     return {"current_time": now.isoformat()}
-
 
 def main():
     print("Running MCP Resource Server...")

@@ -11,9 +11,6 @@ from mcp.client.streamable_http import streamable_http_client
 
 load_dotenv()
 
-port = 8000
-
-
 async def main():
     token = os.getenv("TOKEN")
     if not token:
@@ -24,7 +21,7 @@ async def main():
         headers={"Authorization": f"Bearer {token}"}
     ) as http_client:
         async with streamable_http_client(
-            url=f"http://localhost:{port}/mcp",
+            url=f"http://localhost:8000/mcp",
             http_client=http_client,
         ) as (read_stream, write_stream):
             async with ClientSession(read_stream, write_stream) as session:

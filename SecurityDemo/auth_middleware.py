@@ -3,7 +3,6 @@ from starlette.responses import Response
 
 from util import validate_token
 
-
 USERS = ["User Userson", "Admin Adminson"]
 REQUIRED_SCOPE = "Admin.Write"
 BEARER_PREFIX = "Bearer "
@@ -17,17 +16,14 @@ def extract_bearer_token(authorization_header: str | None) -> str | None:
     token = authorization_header[len(BEARER_PREFIX):].strip()
     return token or None
 
-
 def decode_token(authorization_header: str | None) -> dict | None:
-    token = authorization_header[len(BEARER_PREFIX):].strip()
+    token = extract_bearer_token(authorization_header)
     if not token:
         return None
     return validate_token(token)
 
-
 def is_user(decoded_token: dict) -> bool:
     return decoded_token.get("name") in USERS
-
 
 def has_scope(decoded_token: dict, scope: str) -> bool:
     scopes = decoded_token.get("scopes", [])
